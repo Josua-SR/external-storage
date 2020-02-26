@@ -1,0 +1,201 @@
+---
+kind: pipeline
+name: linux-amd64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: amd64
+
+workspace:
+  path: /go/src/github.com/kubernetes-incubator/external-storage
+
+steps:
+  - name: openebs-provisioner
+    image: golang:1.12
+    commands:
+      - go build -a -ldflags '-extldflags "-static"' ./openebs/cmd/openebs-provisioner
+      - cp openebs-provisioner openebs/buildscripts/docker/
+
+  - name: snapshot-controller
+    image: golang:1.12
+    commands:
+      - go build -a -ldflags '-extldflags "-static"' ./snapshot/cmd/snapshot-controller
+      - cp snapshot-controller snapshot/deploy/docker/controller/
+      - cp -Rf snapshot/deploy/ca-certificates/* snapshot/deploy/docker/controller/.
+
+  - name: snapshot-provisioner
+    image: golang:1.12
+    commands:
+      - go build -a -ldflags '-extldflags "-static"' -o snapshot-provisioner ./snapshot/cmd/snapshot-pv-provisioner
+      - cp snapshot-provisioner snapshot/deploy/docker/provisioner/
+      - cp -Rf snapshot/deploy/ca-certificates/* snapshot/deploy/docker/provisioner/.
+
+  - name: openebs-provisioner-image
+    image: plugins/docker
+    settings:
+      dockerfile: openebs/buildscripts/docker/Dockerfile
+      context: openebs/buildscripts/docker
+      registry: quay.io
+      repo: quay.io/josua-sr/openebs-k8s-provisioner
+      tag: 1.7.0-amd64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: snapshot-controller-image
+    image: plugins/docker
+    settings:
+      dockerfile: snapshot/deploy/docker/controller/Dockerfile
+      context: snapshot/deploy/docker/controller
+      registry: quay.io
+      repo: quay.io/josua-sr/snapshot-controller
+      tag: 1.7.0-amd64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: snapshot-provisioner-image
+    image: plugins/docker
+    settings:
+      dockerfile: snapshot/deploy/docker/provisioner/Dockerfile
+      context: snapshot/deploy/docker/provisioner
+      registry: quay.io
+      repo: quay.io/josua-sr/snapshot-provisioner
+      tag: 1.7.0-amd64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+---
+kind: pipeline
+name: linux-arm64
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+  arch: arm64
+
+workspace:
+  path: /go/src/github.com/kubernetes-incubator/external-storage
+
+steps:
+  - name: openebs-provisioner
+    image: golang:1.12
+    commands:
+      - go build -a -ldflags '-extldflags "-static"' ./openebs/cmd/openebs-provisioner
+      - cp openebs-provisioner openebs/buildscripts/docker/
+
+  - name: snapshot-controller
+    image: golang:1.12
+    commands:
+      - go build -a -ldflags '-extldflags "-static"' ./snapshot/cmd/snapshot-controller
+      - cp snapshot-controller snapshot/deploy/docker/controller/
+      - cp -Rf snapshot/deploy/ca-certificates/* snapshot/deploy/docker/controller/.
+
+  - name: snapshot-provisioner
+    image: golang:1.12
+    commands:
+      - go build -a -ldflags '-extldflags "-static"' -o snapshot-provisioner ./snapshot/cmd/snapshot-pv-provisioner
+      - cp snapshot-provisioner snapshot/deploy/docker/provisioner/
+      - cp -Rf snapshot/deploy/ca-certificates/* snapshot/deploy/docker/provisioner/.
+
+  - name: openebs-provisioner-image
+    image: plugins/docker
+    settings:
+      dockerfile: openebs/buildscripts/docker/Dockerfile.arm64
+      context: openebs/buildscripts/docker
+      registry: quay.io
+      repo: quay.io/josua-sr/openebs-k8s-provisioner
+      tag: 1.7.0-arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: snapshot-controller-image
+    image: plugins/docker
+    settings:
+      dockerfile: snapshot/deploy/docker/controller/Dockerfile
+      context: snapshot/deploy/docker/controller
+      registry: quay.io
+      repo: quay.io/josua-sr/snapshot-controller
+      tag: 1.7.0-arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: snapshot-provisioner-image
+    image: plugins/docker
+    settings:
+      dockerfile: snapshot/deploy/docker/provisioner/Dockerfile
+      context: snapshot/deploy/docker/provisioner
+      registry: quay.io
+      repo: quay.io/josua-sr/snapshot-provisioner
+      tag: 1.7.0-arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+---
+kind: pipeline
+name: manifest
+
+clone:
+  depth: 1
+
+platform:
+  os: linux
+
+steps:
+  - name: openebs-provisioner-image
+    image: plugins/manifest
+    settings:
+      target: quay.io/josua-sr/openebs-k8s-provisioner:1.7.0
+      template: quay.io/josua-sr/openebs-k8s-provisioner:1.7.0-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: snapshot-controller-image
+    image: plugins/manifest
+    settings:
+      target: quay.io/josua-sr/snapshot-controller:1.7.0
+      template: quay.io/josua-sr/snapshot-controller:1.7.0-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+  - name: snapshot-provisioner-image
+    image: plugins/manifest
+    settings:
+      target: quay.io/josua-sr/snapshot-provisioner:1.7.0
+      template: quay.io/josua-sr/snapshot-provisioner:1.7.0-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      username:
+        from_secret: quay_username
+      password:
+        from_secret: quay_password
+
+depends_on:
+- linux-amd64
+- linux-arm64
